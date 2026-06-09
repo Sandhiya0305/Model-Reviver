@@ -1,0 +1,39 @@
+import os
+from pathlib import Path
+
+BASE_DIR = Path(__file__).parent
+
+DATA_DIR = BASE_DIR / "data"
+MODELS_DIR = BASE_DIR / "models"
+MLRUNS_DIR = BASE_DIR / "mlruns"
+
+DATA_DIR.mkdir(exist_ok=True)
+MODELS_DIR.mkdir(exist_ok=True)
+MLRUNS_DIR.mkdir(exist_ok=True)
+
+REFERENCE_DATA_PATH = DATA_DIR / "reference_data.csv"
+PRODUCTION_LOG_PATH = DATA_DIR / "production_log.csv"
+
+MODEL_PKL_PATH = MODELS_DIR / "model.pkl"
+METADATA_PATH = MODELS_DIR / "metadata.json"
+
+MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", f"sqlite:///{MLRUNS_DIR}/mlflow.db")
+MODEL_REGISTRY_NAME = "ModelReviver"
+
+N_FEATURES = 5
+REFERENCE_SIZE = 5000
+PRODUCTION_BATCH_SIZE = 100
+WINDOW_SIZE = 500
+CHECK_INTERVAL_SECONDS = 30
+
+DRIFT_THRESHOLD = 0.4
+
+TRAINING_EPOCHS = 50
+BATCH_SIZE = 64
+LEARNING_RATE = 0.001
+HIDDEN_DIM = 64
+TEST_SPLIT = 0.2
+VALIDATION_SPLIT = 0.1
+RETRAIN_VALIDATION_SPLIT = 0.2
+
+RANDOM_SEED = 42
