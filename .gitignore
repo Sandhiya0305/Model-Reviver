@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+.venv/
+venv/
+env/
+
+# Generated data
+modelreviver/data/*.csv
+modelreviver/models/*.pkl
+modelreviver/models/*.json
+modelreviver/mlruns/
+
+# MLflow
+mlruns/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+.env
+
+# Logs
+*.log
