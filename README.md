@@ -69,31 +69,25 @@ without requiring continuous human intervention.
 
 ```mermaid
 flowchart TD
-
-A[Training Dataset]
---> B[Model Training]
-
-B --> C[MLflow Registry]
-
-C --> D[FastAPI Inference Service]
-
-D --> E[Prediction Logs]
-
-E --> F[Drift Detection Engine]
-
-F -->|No Drift| D
-
-F -->|Drift Detected| G[Retraining Pipeline]
-
-G --> H[Model Validation]
-
-H -->|Pass| I[Register New Version]
-
-I --> J[Redeploy Model]
-
-J --> D
-
-H -->|Fail| D
+    A[Synthetic Data Generator] -->|reference_data.csv| B[Training Pipeline]
+    A -->|production batches| S[Production Stream]
+    
+    B --> C[MLflow Registry<br/>registers model]
+    C --> D[FastAPI Inference Service<br/>port 8000]
+    
+    D -->|logs| E[production_log.csv]
+    
+    E --> F[Drift Detection Engine<br/>Evidently AI + KS Test]
+    
+    F -->|drift_score < 0.4| D
+    F -->|drift_score >= 0.4| G[Retraining Pipeline]
+    
+    G --> H[Model Validation<br/>F1 >= prev - 0.02]
+    H -->|Fail| D
+    H -->|Pass| I[Promote to Champion Alias]
+    
+    I --> J[Hot-Swap Model<br/>thread-safe reload]
+    J --> D
 ```
 
 ---
@@ -102,28 +96,31 @@ H -->|Fail| D
 
 ```mermaid
 sequenceDiagram
-
-participant User
-participant API
-participant Monitor
-participant Trainer
-participant Registry
-
-User->>API: Request Prediction
-
-API->>Monitor: Log Inputs & Outputs
-
-Monitor->>Monitor: Drift Analysis
-
-alt Drift Detected
-
-Monitor->>Trainer: Trigger Retraining
-
-Trainer->>Registry: Register New Model
-
-Registry->>API: Deploy Updated Model
-
-end
+    participant U as User
+    participant API
+    participant Log as Production Log
+    participant M as Monitor Thread
+    participant R as Retraining
+    participant ML as MLflow Registry
+    
+    U->>API: POST /predict {features}
+    API->>API: Inference (MLP)
+    API->>Log: Append prediction record
+    API-->>U: Response {prediction, confidence, version}
+    
+    loop Every 30 seconds
+        M->>Log: Read last 500 rows
+        M->>M: Run drift detection
+        
+        alt drift_score >= 0.4
+            M->>R: Trigger retrain()
+            R->>R: Generate drifted data + retrain
+            R->>R: Validate F1 score
+            R->>ML: Register new version
+            R->>ML: Promote to champion
+            R->>API: Hot-swap model
+        end
+    end
 ```
 
 ---
@@ -131,7 +128,10 @@ end
 ## Quick Start
 
 ```bash
-cd modelreviver
+# Create and activate virtual environment (Recommended)
+python -m venv .venv
+.\.venv\Scripts\activate  # On Windows
+# source .venv/bin/activate  # On Linux/Mac
 
 # Install dependencies
 pip install -r requirements.txt
@@ -156,7 +156,7 @@ curl -X POST http://localhost:8000/predict \
 
 ### Simulate Drift
 
-In a separate terminal, run the drift simulator to send predictions with increasing distribution shift:
+In a separate terminal (with venv activated if needed), run the drift simulator to send predictions with increasing distribution shift:
 
 ```bash
 python simulate_drift.py
@@ -206,7 +206,6 @@ The monitor will detect the drift and automatically retrain + redeploy a new mod
 ## Project Structure
 
 ```text
-modelreviver/
 ├── main.py                   # Entry point — bootstrap, API, monitor thread
 ├── config.py                 # Central configuration
 ├── requirements.txt          # Python dependencies
@@ -230,13 +229,31 @@ modelreviver/
 ├── retraining/
 │   └── retrain.py            # Retrain + validate + promote + hot-swap
 
-├── data/
-│   └── generator.py          # Synthetic data with controllable drift
+└── data/
+    └── generator.py          # Synthetic data with controllable drift
 
-├── models/                   # Local model artifacts (gitignored)
-├── mlruns/                   # MLflow tracking data (gitignored)
-└── data/*.csv                # Prediction logs (gitignored)
+# Generated (gitignored): models/, mlruns/, data/*.csv
 ```
+
+---
+
+## Current Implementation Status
+
+All core components are fully implemented:
+
+| Module | File | Status |
+|--------|------|--------|
+| Data Generation | `data/generator.py` | ✅ Complete |
+| Model Training | `training/train.py` | ✅ Complete |
+| Model Evaluation | `training/evaluate.py` | ✅ Complete |
+| API Service | `api/main.py` | ✅ Complete |
+| Request Schemas | `api/schemas.py` | ✅ Complete |
+| Drift Detection | `monitoring/drift_detector.py` | ✅ Complete |
+| Background Monitor | `monitoring/monitor.py` | ✅ Complete |
+| Retraining Engine | `retraining/retrain.py` | ✅ Complete |
+| Model Loader | `model_loader.py` | ✅ Complete |
+| Entry Point | `main.py` | ✅ Complete |
+| Drift Simulator | `simulate_drift.py` | ✅ Complete |
 
 ---
 
@@ -298,6 +315,7 @@ docker build -t modelreviver .
 docker run -p 8000:8000 \
   -v $(pwd)/data:/app/data \
   -v $(pwd)/models:/app/models \
+  -v $(pwd)/mlruns:/app/mlruns \
   modelreviver
 ```
 

@@ -9,14 +9,10 @@ build/
 venv/
 env/
 
-# Generated data
-modelreviver/data/*.csv
-modelreviver/models/*.pkl
-modelreviver/models/*.json
-modelreviver/mlruns/
-
-# MLflow
+# Generated artifacts
+models/
 mlruns/
+data/*.csv
 
 # IDE
 .vscode/
@@ -31,6 +27,3 @@ Thumbs.db
 
 # Docker
 .env
-
-# Logs
-*.log
